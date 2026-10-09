@@ -17,7 +17,6 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
         pass  # Отключаем спам логов от проверок Render
         
     def do_GET(self):
-        # Отвечаем Render статусом 200 OK
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
@@ -57,7 +56,6 @@ def send_welcome(message):
 @bot.message_handler(func=lambda message: message.text == "ℹ️ Справочная информация")
 def send_info_menu(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    
     markup.add(
         types.InlineKeyboardButton("📋 Документы при приеме на работу", callback_data="info_docs"),
         types.InlineKeyboardButton("🤝 Обязанности нанимателя при приеме", callback_data="info_boss"),
@@ -66,7 +64,6 @@ def send_info_menu(message):
         types.InlineKeyboardButton("🤒 Расчет больничного для новичков", callback_data="info_sick"),
         types.InlineKeyboardButton("❓ ТОП Вопросов молодых специалистов", callback_data="info_faq")
     )
-    
     bot.send_message(
         message.chat.id, 
         "📚 **Памятка молодого специалиста**\n\n"
@@ -78,7 +75,6 @@ def send_info_menu(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
     bot.answer_callback_query(call.id)
-    
     if call.data == "info_back_to_menu":
         try:
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
@@ -157,7 +153,6 @@ def handle_info_pages(call):
 
     back_markup = types.InlineKeyboardMarkup()
     back_markup.add(types.InlineKeyboardButton("🔙 Вернуться в меню справочника", callback_data="info_back_to_menu"))
-    
     try:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, reply_markup=back_markup, parse_mode="Markdown")
     except Exception:
@@ -200,10 +195,12 @@ def process_user_report(message):
         bot.send_message(message.chat.id, "⚠️ Сессия устарела. Нажмите заново на кнопку '⚠️ Сообщить о проблеме'.")
         return
 
+    # Извлекаем тип сообщения и текст в один шаг для избежания путаницы в отступах
+    photo_id = None
+    problem_text = ""
+
     if message.content_type == 'photo':
-        user_data[user_id]['photo'] = message.photo[-1].file_id
-        if message.caption:
-            user_data[user_id]['text'] = message.caption
-        else:
-            user_data[user_id]['text'] = "Описание отсутствует."
+        photo_id = message.photo[-1].file_id
+        problem_text = message.caption if message.caption else "Описание отсутствует."
     elif message.content_type == 'text':
+        if message.text in ["⚠️ Сообщить о проблеме", "ℹ️ Справочная информация"]:
