@@ -17,7 +17,7 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
         pass  # Отключаем спам логов от проверок Render
         
     def do_GET(self):
-        # Отвечаем Render статусом 200 OK.
+        # Отвечаем Render статусом 200 OK
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
