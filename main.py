@@ -6,9 +6,11 @@ from telebot import types
 
 
 # --- НАСТРОЙКИ ---
-API_TOKEN "8691191999:AAFAtz2tltAY3GQosohgwpm4zUsWWx17puk"
+API_TOKEN = "8691191999:AAFAtz2tltAY3GQosohgwpm4zUsWWx17puk"
 ADMIN_ID = 1099402750
 PORT = int(os.environ.get("PORT", "10000"))
+
+print(f"[BOOT] Токен длина={len(API_TOKEN)}, начало={API_TOKEN[:10]}", flush=True)
 
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
@@ -23,7 +25,7 @@ class RenderHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("Бот активен".encode("utf-8"))
+        self.wfile.write("OK".encode("utf-8"))
 
     def do_HEAD(self):
         self.send_response(200)
@@ -127,9 +129,11 @@ INFO_PAGES = {
         "✔️ Ознакомить работника под подпись с условиями труда\n"
         "✔️ Ознакомить с коллективным договором и ПВТР\n"
         "✔️ Провести инструктаж по охране труда\n"
-        "✔️ Организовать стажировку молодого специалиста\n"
+        "✔️ Организовать стажировку молодого специалиста "
+        "(Постановление Минтруда № 74 от 23.08.2011)\n"
         "✔️ Вести трудовую книжку\n"
-        "✔️ Обеспечить условия для работы"
+        "✔️ Обеспечить условия для работы\n\n"
+        "*Запрещается:* требовать работу, не обусловленную договором (ст. 20 ТК)."
     ),
     "pension": (
         "🎓 *Распределение и пенсионный стаж*\n\n"
@@ -147,7 +151,9 @@ INFO_PAGES = {
         "▪️ По состоянию здоровья\n"
         "▪️ Переезд к супругу/супруге\n"
         "▪️ Ребёнок-инвалид\n"
-        "▪️ Беременность или ребёнок до 3 лет"
+        "▪️ Беременность или ребёнок до 3 лет\n\n"
+        "*Справка о самостоятельном трудоустройстве* — через управление "
+        "по труду, занятости и соцзащите."
     ),
     "test": (
         "🚫 *Кому не ставится испытательный срок*\n\n"
@@ -185,11 +191,10 @@ INFO_PAGES = {
     "faq": (
         "❓ *ТОП вопросов молодых специалистов*\n\n"
         "*1. Когда выходить на работу?*\n"
-        "Как правило — с 1 августа.\n\n"
+        "Как правило — с 1 августа (Указ № 1 от 05.01.2024).\n\n"
         "*2. Можно ли уволиться по собственному желанию?*\n"
-        "До окончания отработки — только по уважительным причинам, "
-        "перечисленным в Кодексе об образовании. Иначе — возмещение "
-        "затрат на обучение.\n\n"
+        "До окончания отработки — только по уважительным причинам. "
+        "Иначе — возмещение затрат на обучение.\n\n"
         "*3. Входит ли декрет в отработку?*\n"
         "Да, отпуск по уходу за ребёнком до 3 лет входит.\n\n"
         "*4. Входит ли армия в отработку?*\n"
@@ -299,7 +304,11 @@ def handle_user_inputs(message):
     if current_state == "waiting_for_issue":
         try:
             bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
-            bot.send_message(ADMIN_ID, f"☝️ Обращение от пользователя:\nID: `{user_id}`", parse_mode="Markdown")
+            bot.send_message(
+                ADMIN_ID,
+                f"☝️ Обращение от пользователя:\nID: `{user_id}`",
+                parse_mode="Markdown",
+            )
             user_data.pop(user_id, None)
             bot.send_message(
                 message.chat.id,
@@ -328,7 +337,7 @@ if __name__ == "__main__":
 
         wh = bot.get_webhook_info()
         if wh.url:
-            print(f"[INIT] ⚠️ Вебхук: {wh.url} — удаляю", flush=True)
+            print(f"[INIT] Вебхук: {wh.url} — удаляю", flush=True)
             bot.remove_webhook()
         else:
             print("[INIT] Вебхук не установлен — ок", flush=True)
