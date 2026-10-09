@@ -16,13 +16,24 @@ def run_web_server():
     class SilentHandler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, format, *args):
             pass  # Отключаем лишний спам запросов в логи Render
+            
+        def do_GET(self):
+            # КРИТИЧНО ДЛЯ RENDER: Отвечаем "ОК" на проверки пинга от хостинга
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"Бот работает стабильно!")
 
-    # ИСПРАВЛЕНО: Явно указан хост '0.0.0.0' для прохождения проверки Render
+    # ИСПРАВЛЕНО: Явный хост 0.0.0.0 для прохождения внутренних проверок сети Render
     server_address = ('0.0.0.0', 10000)
     try:
         httpd = http.server.HTTPServer(server_address, SilentHandler)
         print("Вспомогательный веб-сервер Render запущен на порту 10000...")
-        httpd.serve_forever()
+        
+        # Запускаем бесконечное прослушивание порта в изолированном фоновом потоке
+        server_thread = threading.Thread(target=httpd.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
     except Exception as e:
         print(f"Ошибка запуска веб-сервера: {e}")
 
@@ -41,7 +52,7 @@ def send_welcome(message):
     welcome_text = (
         "👋 Здравствуйте! Данный бот создан для сбора и оперативного решения "
         "проблемных вопросов молодых специалистов Наровлянского района.\n\n"
-        "Вы можете отправить обращение (текст + photo) или ознакомиться со "
+        "Вы можете отправить обращение (текст + фото) или ознакомиться со "
         "справочной информацией о ваших правах, выплатах и гарантиях."
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
@@ -158,7 +169,7 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     user_id = message.from_user.id
-    user_data[user_id] = {} # Сбрасываем черновик
+    user_data[user_id] = {} # Очищаем черновик для новой заявки
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -167,10 +178,9 @@ def choose_category(message):
         types.InlineKeyboardButton("💰 Выплаты / Подъемные / Зарплата", callback_data="category_Деньги"),
         types.InlineKeyboardButton("❓ Другой вопрос", callback_data="category_Другое")
     )
-    # ИСПРАВЛЕНО: Строка теперь полностью закрыта, добавлен параметр reply_markup
     bot.send_message(message.chat.id, "Выберите категорию вашей проблемы:", reply_markup=markup)
 
-# Обработка клика по inline-кнопкам категорий
+# Обработка клика по кнопкам выбора категорий проблем
 @bot.callback_query_handler(func=lambda call: call.data.startswith('category_'))
 def handle_category_selection(call):
     user_id = call.from_user.id
@@ -185,23 +195,11 @@ def handle_category_selection(call):
         f"✍️ Пожалуйста, отправьте текст вашего обращения. К тексту вы также можете прикрепить одно фото.",
         parse_mode="Markdown"
     )
-    # Направляем пользователя на функцию приема сообщения
+    # Переводим пользователя на шаг ожидания текста/картинки
     bot.register_next_step_handler(msg, process_user_report)
 
-# Прием текста/фото и пересылка админу
+# Прием обращения (обработка текста или фото) и отправка админу
 def process_user_report(message):
     user_id = message.from_user.id
     
     if user_id not in user_data or 'category' not in user_data[user_id]:
-        bot.send_message(message.chat.id, "⚠️ Произошла ошибка. Нажмите заново на кнопку '⚠️ Сообщить о проблеме'.")
-        return
-
-    # Если отправлено фото
-    if message.content_type == 'photo':
-        user_data[user_id]['photo'] = message.photo[-1].file_id
-        if message.caption:
-            user_data[user_id]['text'] = message.caption
-        else:
-            user_data[user_id]['text'] = "Описание отсутствует (только фото)."
-            
-    # Если отправлен текст
