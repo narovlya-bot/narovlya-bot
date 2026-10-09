@@ -3,7 +3,7 @@ from telebot import types
 import http.server
 import threading
 
-# --- ИТОГОВЫЕ НАСТРОЙКИ ПОДКЛЮЧЕНИЯ (УЖЕ ВСТАВЛЕНЫ) ---
+# --- ИТОГОВЫЕ НАСТРОЙКИ ПОДКЛЮЧЕНИЯ ---
 API_TOKEN = '8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E'
 ADMIN_ID = 1099402750
 
@@ -31,7 +31,7 @@ def send_welcome(message):
     welcome_text = (
         "👋 Здравствуйте! Данный бот создан для сбора и оперативного решения "
         "проблемных вопросов молодых специалистов Наровлянского района.\n\n"
-        "Вы можете отправить официальное обращение (текст + фото) или ознакомиться со "
+        "Вы можете отправить официальное обращение (текст + photo) или ознакомиться со "
         "справочной информацией о ваших правах, выплатах и гарантиях."
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
@@ -60,7 +60,7 @@ def send_info_menu(message):
 # --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
-    page = call.data.split('_')[1]
+    page = call.data.split('_')[1] # Строго берем вторую часть после нижнего подчеркивания
     text = ""
     
     if page == "docs":
@@ -160,4 +160,3 @@ def back_to_info_menu(call):
 def choose_category(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     btn1 = types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье")
-    btn2 = types.InlineKeyboardButton("💼 Трудовые споры / Наставничество", callback_data="category_Работа")
