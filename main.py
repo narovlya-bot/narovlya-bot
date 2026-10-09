@@ -21,7 +21,9 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(b"Бот и веб-сервер работают в штатном режиме!")
+        # ИСПРАВЛЕНО: Заменили b"..." на .encode('utf-8'), чтобы не было ошибки синтаксиса
+        response_text = "Бот и веб-сервер работают в штатном режиме!"
+        self.wfile.write(response_text.encode('utf-8'))
 
 def start_http_server():
     server_address = ('0.0.0.0', 10000)
@@ -201,5 +203,3 @@ def process_user_report(message):
 
     if message.content_type == 'photo':
         user_data[user_id]['photo'] = message.photo[-1].file_id
-        user_data[user_id]['text'] = message.caption if message.caption else "Описание отсутствует."
-    elif message.content_type == 'text':
