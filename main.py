@@ -17,7 +17,8 @@ def run_web_server():
         def log_message(self, format, *args):
             pass  # Отключаем лишний спам запросов в логи Render
 
-    server_address = ('', 10000)
+    # ИСПРАВЛЕНО: Явно указан хост '0.0.0.0' для прохождения проверки Render
+    server_address = ('0.0.0.0', 10000)
     try:
         httpd = http.server.HTTPServer(server_address, SilentHandler)
         print("Вспомогательный веб-сервер Render запущен на порту 10000...")
@@ -40,7 +41,7 @@ def send_welcome(message):
     welcome_text = (
         "👋 Здравствуйте! Данный бот создан для сбора и оперативного решения "
         "проблемных вопросов молодых специалистов Наровлянского района.\n\n"
-        "Вы можете отправить обращение (текст + фото) или ознакомиться со "
+        "Вы можете отправить обращение (текст + photo) или ознакомиться со "
         "справочной информацией о ваших правах, выплатах и гарантиях."
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
@@ -132,7 +133,7 @@ def handle_info_pages(call):
             "✅ Минимальная база для расчета теперь привязана к минимальной заработной плате (МЗП) - сейчас это 726 руб.\n"
             "✅ Больничный за полный месяц болезни считается как 100% от МЗП.\n"
             "📈 Если ваш средний реальный заработок станет выше расчетной базы МЗП, больничный будет рассчитываться как 80% от вашего фактического заработка.\n"
-            "🏆 100% от реального заработка выплачивается при общего стажа работы от 10 лет и более."
+            "🏆 100% от реального заработка выплачивается при общем стаже работы от 10 лет и более."
         )
     elif page == "faq":
         text = (
@@ -157,7 +158,7 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     user_id = message.from_user.id
-    user_data[user_id] = {} # Сбрасываем старые черновики при новом обращении
+    user_data[user_id] = {} # Сбрасываем черновик
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -166,9 +167,10 @@ def choose_category(message):
         types.InlineKeyboardButton("💰 Выплаты / Подъемные / Зарплата", callback_data="category_Деньги"),
         types.InlineKeyboardButton("❓ Другой вопрос", callback_data="category_Другое")
     )
+    # ИСПРАВЛЕНО: Строка теперь полностью закрыта, добавлен параметр reply_markup
     bot.send_message(message.chat.id, "Выберите категорию вашей проблемы:", reply_markup=markup)
 
-# Обработка выбора категории
+# Обработка клика по inline-кнопкам категорий
 @bot.callback_query_handler(func=lambda call: call.data.startswith('category_'))
 def handle_category_selection(call):
     user_id = call.from_user.id
@@ -183,25 +185,23 @@ def handle_category_selection(call):
         f"✍️ Пожалуйста, отправьте текст вашего обращения. К тексту вы также можете прикрепить одно фото.",
         parse_mode="Markdown"
     )
-    # Ждем от пользователя текст или фото на следующем шаге
+    # Направляем пользователя на функцию приема сообщения
     bot.register_next_step_handler(msg, process_user_report)
 
-# Получение и обработка самого обращения от пользователя
+# Прием текста/фото и пересылка админу
 def process_user_report(message):
     user_id = message.from_user.id
     
-    # Проверяем, заходил ли пользователь в меню категорий
     if user_id not in user_data or 'category' not in user_data[user_id]:
-        bot.send_message(message.chat.id, "⚠️ Произошла ошибка. Начните сначала, нажав на кнопку '⚠️ Сообщить о проблеме'.")
+        bot.send_message(message.chat.id, "⚠️ Произошла ошибка. Нажмите заново на кнопку '⚠️ Сообщить о проблеме'.")
         return
 
-    # Если пользователь отправил фото
+    # Если отправлено фото
     if message.content_type == 'photo':
         user_data[user_id]['photo'] = message.photo[-1].file_id
-        # Проверяем, есть ли описание у фото
         if message.caption:
             user_data[user_id]['text'] = message.caption
         else:
-            user_data[user_id]['text'] = "Пользователь не оставил текстового описания, только фото."
+            user_data[user_id]['text'] = "Описание отсутствует (только фото)."
             
-    # Если пользователь отправил только текст
+    # Если отправлен текст
