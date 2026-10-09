@@ -5,15 +5,10 @@ import telebot
 from telebot import types
 
 
-# --- НАСТРОЙКИ (берутся из переменных окружения Render) ---
-API_TOKEN = os.environ.get("API_TOKEN", "")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
+# --- НАСТРОЙКИ ---
+API_TOKEN = "8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E"
+ADMIN_ID = 1099402750
 PORT = int(os.environ.get("PORT", "10000"))
-
-if not API_TOKEN:
-    raise RuntimeError("Не задана переменная окружения API_TOKEN")
-if not ADMIN_ID:
-    raise RuntimeError("Не задана переменная окружения ADMIN_ID")
 
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
