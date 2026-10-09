@@ -17,7 +17,7 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
         pass  # Отключаем спам логов от проверок Render
         
     def do_GET(self):
-        # Отвечаем Render статусом 200 OK. Текст строго на английском (ASCII)
+        # Отвечаем Render статусом 200 OK.
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
@@ -28,7 +28,6 @@ def start_http_server():
     try:
         httpd = http.server.HTTPServer(server_address, SilentHandler)
         print("Вспомогательный веб-сервер запущен на порту 10000...")
-        # Бесконечный цикл веб-сервера держит главный поток живым
         httpd.serve_forever()
     except Exception as e:
         print(f"Критическая ошибка веб-сервера: {e}")
@@ -78,7 +77,7 @@ def send_info_menu(message):
 # --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
-    bot.answer_callback_query(call.id) # Снимает вечную загрузку с инлайн-кнопок
+    bot.answer_callback_query(call.id)
     
     if call.data == "info_back_to_menu":
         try:
@@ -168,7 +167,7 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     user_id = message.from_user.id
-    user_data[user_id] = {} # Инициализируем пустую сессию для черновика
+    user_data[user_id] = {}
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -206,3 +205,5 @@ def process_user_report(message):
         if message.caption:
             user_data[user_id]['text'] = message.caption
         else:
+            user_data[user_id]['text'] = "Описание отсутствует."
+    elif message.content_type == 'text':
