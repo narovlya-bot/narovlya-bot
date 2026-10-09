@@ -69,7 +69,7 @@ def handle_info_pages(call):
     if len(page_data) < 2:
         return
         
-    page = page_data[1] # СТРОГО БЕРЕМ ВТОРОЙ ЭЛЕМЕНТ (ИНДЕКС 1)
+    page = page_data[1] # Исправлено: строго извлекаем текстовый элемент из списка
     text = ""
     
     if page == "docs":
