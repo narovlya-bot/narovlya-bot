@@ -36,12 +36,11 @@ def send_welcome(message):
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
 
-# --- ГЛАВНОЕ МЕНЮ СПРАВОЧНИКА (ИСПРАВЛЕНО!) ---
+# --- ГЛАВНОЕ МЕНЮ СПРАВОЧНИКА ---
 @bot.message_handler(func=lambda message: message.text == "ℹ️ Справочная информация")
 def send_info_menu(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     
-    # Каждая кнопка добавляется отдельно для строгого соответствия правилам Telegram API
     markup.add(types.InlineKeyboardButton("📋 Документы при приеме на работу", callback_data="info_docs"))
     markup.add(types.InlineKeyboardButton("🤝 Обязанности нанимателя при приеме", callback_data="info_boss"))
     markup.add(types.InlineKeyboardButton("🎓 Распределение и пенсионный стаж", callback_data="info_pension"))
@@ -58,7 +57,7 @@ def send_info_menu(message):
         parse_mode="Markdown"
     )
 
-# --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА (ИСПРАВЛЕНО!) ---
+# --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
     if call.data == "info_back_to_menu":
@@ -70,7 +69,7 @@ def handle_info_pages(call):
     if len(page_data) < 2:
         return
         
-    page = page_data[1] # Строго берем чистое текстовое значение ('docs', 'boss' и т.д.)
+    page = page_data[1] # СТРОГО БЕРЕМ ВТОРОЙ ЭЛЕМЕНТ (ИНДЕКС 1)
     text = ""
     
     if page == "docs":
@@ -164,3 +163,4 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье"))
