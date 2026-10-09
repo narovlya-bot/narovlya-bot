@@ -2,6 +2,7 @@ import telebot
 from telebot import types
 import http.server
 import threading
+import sys
 
 # --- НАСТРОЙКИ ПОДКЛЮЧЕНИЯ ---
 API_TOKEN = '8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E'
@@ -10,11 +11,15 @@ ADMIN_ID = 1099402750
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 
-# Вспомогательный сервер для Render, чтобы сервис не падал по таймауту
+# Вспомогательный веб-сервер для Render (чтобы сервис не падал по таймауту)
 def run_web_server():
+    class SilentHandler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass  # Отключаем лишний спам запросов в логи Render
+
     server_address = ('', 10000)
-    httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
-    print("Вспомогательный веб-сервер Render запущен...")
+    httpd = http.server.HTTPServer(server_address, SilentHandler)
+    print("Вспомогательный веб-сервер Render запущен на порту 10000...")
     httpd.serve_forever()
 
 # --- КОМАНДА СТАРТ ---
@@ -62,7 +67,10 @@ def send_info_menu(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
     if call.data == "info_back_to_menu":
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        try:
+            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        except Exception:
+            pass
         send_info_menu(call.message)
         return
 
@@ -137,7 +145,10 @@ def handle_info_pages(call):
     back_markup = types.InlineKeyboardMarkup()
     back_markup.add(types.InlineKeyboardButton("🔙 Вернуться в меню справочника", callback_data="info_back_to_menu"))
     
-    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, reply_markup=back_markup)
+    try:
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, reply_markup=back_markup, parse_mode="Markdown")
+    except Exception:
+        bot.send_message(call.message.chat.id, text=text, reply_markup=back_markup, parse_mode="Markdown")
 
 # --- БЛОК СБОРА ОБРАЩЕНИЙ ---
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
@@ -157,7 +168,10 @@ def save_category(call):
     category = call.data.replace("category_", "")
     
     user_data[user_id] = {'category': category}
-    bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+    try:
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+    except Exception:
+        pass
     
     msg = bot.send_message(
         call.message.chat.id, 
@@ -186,20 +200,8 @@ def process_problem_step(message):
         f"📝 **Текст проблемы:**\n"
     )
 
-    if message.content_type == 'photo':
-        photo_id = message.photo[-1].file_id
-        caption = message.caption if message.caption else "Без текстового описания"
-        admin_text += caption
-        bot.send_photo(ADMIN_ID, photo_id, caption=admin_text, parse_mode="Markdown")
-    
-    elif message.content_type == 'text':
-        admin_text += message.text
-        bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
-    
-    else:
-        bot.send_message(message.chat.id, "❌ Бот принимает только текст или фото. Попробуйте еще раз через меню.")
-        return
-
-    del user_data[user_id]
-
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    try:
+        if message.content_type == 'photo':
+            photo_id = message.photo[-1].file_id
+            caption = message.caption if message.caption else "Без текстового описания"
+            admin_text += caption
