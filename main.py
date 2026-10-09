@@ -36,28 +36,29 @@ def send_welcome(message):
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
 
-# --- ГЛАВНОЕ МЕНЮ СПРАВОЧНИКА ---
+# --- ГЛАВНОЕ МЕНЮ СПРАВОЧНИКА (ИСПРАВЛЕНО!) ---
 @bot.message_handler(func=lambda message: message.text == "ℹ️ Справочная информация")
 def send_info_menu(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("📋 Документы при приеме на работу", callback_data="info_docs"),
-        types.InlineKeyboardButton("🤝 Обязанности нанимателя при приеме", callback_data="info_boss"),
-        types.InlineKeyboardButton("🎓 Распределение и пенсионный стаж", callback_data="info_pension"),
-        types.InlineKeyboardButton("🚫 Кому не ставится испытательный срок", callback_data="info_test"),
-        types.InlineKeyboardButton("🤒 Расчет больничного для новичков", callback_data="info_sick"),
-        types.InlineKeyboardButton("❓ ТОП Вопросов молодых специалистов", callback_data="info_faq")
-    )
+    
+    # Каждая кнопка добавляется отдельно для строгого соответствия правилам Telegram API
+    markup.add(types.InlineKeyboardButton("📋 Документы при приеме на работу", callback_data="info_docs"))
+    markup.add(types.InlineKeyboardButton("🤝 Обязанности нанимателя при приеме", callback_data="info_boss"))
+    markup.add(types.InlineKeyboardButton("🎓 Распределение и пенсионный стаж", callback_data="info_pension"))
+    markup.add(types.InlineKeyboardButton("🚫 Кому не ставится испытательный срок", callback_data="info_test"))
+    markup.add(types.InlineKeyboardButton("🤒 Расчет больничного для новичков", callback_data="info_sick"))
+    markup.add(types.InlineKeyboardButton("❓ ТОП Вопросов молодых специалистов", callback_data="info_faq"))
+    
     bot.send_message(
         message.chat.id, 
-        "📚 **Памятка молодого специалиста**\n"
+        "📚 **Памятка молодого специалиста**\n\n"
         "В данном разделе собраны ответы на самые частые запросы выпускников. "
         "Выберите интересующую вас тему из интерактивного меню:", 
         reply_markup=markup, 
         parse_mode="Markdown"
     )
 
-# --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА ---
+# --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА (ИСПРАВЛЕНО!) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
     if call.data == "info_back_to_menu":
@@ -69,13 +70,13 @@ def handle_info_pages(call):
     if len(page_data) < 2:
         return
         
-    page = page_data[1] # СТРОГО БЕРЕМ ИНДЕКС ТЕКСТОВОЙ СТРОКИ
+    page = page_data[1] # Строго берем чистое текстовое значение ('docs', 'boss' и т.д.)
     text = ""
     
     if page == "docs":
         text = (
-            "📋 **Какие документы молодые специалисты должны предъявить нанимателю?**\n"
-            "Чтобы ничего не упустить, проверьте список:\n\n"
+            "📋 **Какие документы молодые специалисты должны предъявить нанимателю?**\n\n"
+            "Чтобы ничего не упустить, проверьте список:\n"
             "✔️ Документ, удостоверяющий личность\n"
             "✔️ Документы воинского учета (для военнообязанных и призывников)\n"
             "✔️ Документ об образовании или документ об обучении\n"
@@ -163,5 +164,3 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    btn1 = types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье")
-    btn2 = types.InlineKeyboardButton("💼 Трудовые споры / Наставничество", callback_data="category_Работа")
