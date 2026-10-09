@@ -4,7 +4,7 @@ import http.server
 import threading
 
 # ТОКЕН ВАШЕГО БОТА
-API_TOKEN = '8691191999:AAEa5mcqMtgi370Fn61kRrYmhxu2LI-i6Ro'
+API_TOKEN = 8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E
 # ВАШ ЛИЧНЫЙ TELEGRAM ID
 ADMIN_ID = 1099402750
 
