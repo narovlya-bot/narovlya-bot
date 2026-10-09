@@ -11,26 +11,24 @@ ADMIN_ID = 1099402750
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 
-# Вспомогательный веб-сервер для Render (занимает главный поток, как просит хостинг)
+# Вспомогательный веб-сервер для Render (занимает главный поток, как требует хостинг)
 class SilentHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
-        pass  # Отключаем спам логов запросов от Render
+        pass  # Отключаем спам логов от проверок Render
         
     def do_GET(self):
-        # Отвечаем Render статусом 200 OK, чтобы он не перезагружал контейнер
+        # Отвечаем Render статусом 200 OK. Текст строго на английском (ASCII), чтобы не было SyntaxError
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        # ИСПРАВЛЕНО: Заменили b"..." на .encode('utf-8'), чтобы не было ошибки синтаксиса
-        response_text = "Бот и веб-сервер работают в штатном режиме!"
-        self.wfile.write(response_text.encode('utf-8'))
+        self.wfile.write(b"OK")
 
 def start_http_server():
     server_address = ('0.0.0.0', 10000)
     try:
         httpd = http.server.HTTPServer(server_address, SilentHandler)
         print("Вспомогательный веб-сервер запущен на порту 10000...")
-        # Запускаем бесконечный цикл веб-сервера на основном потоке
+        # Бесконечный цикл веб-сервера держит главный поток живым
         httpd.serve_forever()
     except Exception as e:
         print(f"Критическая ошибка веб-сервера: {e}")
@@ -203,3 +201,6 @@ def process_user_report(message):
 
     if message.content_type == 'photo':
         user_data[user_id]['photo'] = message.photo[-1].file_id
+        user_data[user_id]['text'] = message.caption if message.caption else "Описание отсутствует."
+    elif message.content_type == 'text':
+        if message.text in ["⚠️ Сообщить о проблеме", "ℹ️ Справочная информация"]:
