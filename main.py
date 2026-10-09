@@ -69,7 +69,7 @@ def handle_info_pages(call):
     if len(page_data) < 2:
         return
         
-    page = page_data[1] # СТРОГО БЕРЕМ ВТОРОЕ СЛОВО ИЗ СПИСКА
+    page = page_data[1] # СТРОГО БЕРЕМ ИНДЕКС ТЕКСТОВОЙ СТРОКИ
     text = ""
     
     if page == "docs":
