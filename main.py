@@ -3,25 +3,27 @@ from telebot import types
 import http.server
 import threading
 
-# ТОКЕН ВАШЕГО БОТА
+# НОВЫЙ ТОКЕН ВАШЕГО БОТА (ВСТАВЬТЕ ЕГО ВНУТРЬ КАВЫЧЕК)
 API_TOKEN = '8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E'
-# ВАШ ЛИЧНЫЙ TELEGRAM ID
+
+# ВАШ ЛИЧНЫЙ TELEGRAM ID (УЖЕ НАСТРОЕН)
 ADMIN_ID = 1099402750
 
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 
-# --- ВСТРОЕННЫЙ ВЕБ-СЕРВЕР ДЛЯ ОБМАНА СЕРВЕРА RENDER ---
+# Встроенный веб-сервер для удержания активности Render
 def run_web_server():
     server_address = ('', 10000)
     httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
-    print("Веб-страница для Render открыта на порту 10000...")
+    print("Вспомогательный веб-сервер запущен...")
     httpd.serve_forever()
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     user_id = message.from_user.id
     user_data[user_id] = {}
+    
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     btn_report = types.KeyboardButton("⚠️ Сообщить о проблеме")
     markup.add(btn_report)
@@ -42,19 +44,21 @@ def choose_category(message):
     btn3 = types.InlineKeyboardButton("💰 Выплаты / Подъемные / Зарплата", callback_data="category_Деньги")
     btn4 = types.InlineKeyboardButton("❓ Другой вопрос", callback_data="category_Другое")
     markup.add(btn1, btn2, btn3, btn4)
+    
     bot.send_message(message.chat.id, "Выберите категорию вашей проблемы:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('category_'))
 def save_category(call):
     user_id = call.from_user.id
     category = call.data.split('_')[1]
+    
     user_data[user_id] = {'category': category}
     bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
     
     msg = bot.send_message(
         call.message.chat.id, 
         f"Вы выбрали категорию: **{category}**.\n\n"
-        "Пожалуйста, подробно опишите вашу проблему (укажите место работы, суть ситуации). "
+        "Пожалуйста, подробно опишите вашу проблему (укажите суть ситуации). "
         "Если хотите остаться анонимным — просто не пишите свое имя в тексте обращения.",
         parse_mode="Markdown"
     )
@@ -65,7 +69,7 @@ def process_problem_text(message):
     problem_text = message.text
     
     if user_id not in user_data or 'category' not in user_data[user_id]:
-        bot.send_message(message.chat.id, "Что-то пошло не так. Пожалуйста, введите /start заново.")
+        bot.send_message(message.chat.id, "Пожалуйста, введите /start заново.")
         return
 
     category = user_data[user_id]['category']
@@ -97,11 +101,9 @@ def process_problem_text(message):
     user_data.pop(user_id, None)
 
 if __name__ == '__main__':
-    # 1. Запуск веб-сервера в отдельном потоке для Render
     web_thread = threading.Thread(target=run_web_server)
     web_thread.daemon = True
     web_thread.start()
 
-    # 2. Запуск самого бота
-    print("Бот успешно запущен и слушает Telegram...")
+    print("Бот успешно запущен...")
     bot.infinity_polling(none_stop=True)
