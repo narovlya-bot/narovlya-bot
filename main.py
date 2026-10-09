@@ -31,7 +31,7 @@ def send_welcome(message):
     welcome_text = (
         "👋 Здравствуйте! Данный бот создан для сбора и оперативного решения "
         "проблемных вопросов молодых специалистов Наровлянского района.\n\n"
-        "Вы можете отправить официальное обращение (текст + photo) или ознакомиться со "
+        "Вы можете отправить официальное обращение (текст + фото) или ознакомиться со "
         "справочной информацией о ваших правах, выплатах и гарантиях."
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
@@ -60,7 +60,16 @@ def send_info_menu(message):
 # --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
-    page = call.data.split('_')[1] # Строго берем вторую часть после нижнего подчеркивания
+    if call.data == "info_back_to_menu":
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        send_info_menu(call.message)
+        return
+
+    page_data = call.data.split('_')
+    if len(page_data) < 2:
+        return
+        
+    page = page_data[1] # Исправлено: берём строго строковое значение ключа
     text = ""
     
     if page == "docs":
@@ -150,13 +159,9 @@ def handle_info_pages(call):
     
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, reply_markup=back_markup, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "info_back_to_menu")
-def back_to_info_menu(call):
-    bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-    send_info_menu(call.message)
-
 # --- БЛОК СБОРА ОБРАЩЕНИЙ ---
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     btn1 = types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье")
+    btn2 = types.InlineKeyboardButton("💼 Трудовые споры / Наставничество", callback_data="category_Работа")
