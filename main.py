@@ -1,10 +1,10 @@
-import http.server
 import os
 import re
 import threading
 import requests
 import telebot
 from telebot import types
+from flask import Flask
 
 # --- НАСТРОЙКИ ---
 API_TOKEN = "НОВЫЙ_ТОКЕН_ИЗ_BOTFATHER"
@@ -14,20 +14,20 @@ PORT = int(os.environ.get("PORT", "10000"))
 # --- НЕЙРОСЕТЬ (OpenRouter) ---
 OPENROUTER_API_KEY = "sk-or-v1-ВАШ_КЛЮЧ_СЮДА"
 AI_MODEL = "google/gemini-2.0-flash-exp:free"
-AI_URL = "https://openrouter.ai/api/v1/chat/completions"
+AI_URL = "https://openrouter.ai"
 
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 chat_history = {}
 MAX_HISTORY = 10
 
-# --- ЗАЩИТА ОТ ССЫЛОК (применяется ТОЛЬКО к ответам ИИ) ---
+# --- ЗАЩИТА ОТ ССЫЛОК (только для ИИ) ---
 URL_PATTERNS = [
     re.compile(r"https?://\S+", re.IGNORECASE),
     re.compile(r"www\.\S+", re.IGNORECASE),
     re.compile(r"t\.me/\S+", re.IGNORECASE),
     re.compile(r"telegram\.me/\S+", re.IGNORECASE),
-    re.compile(r"\B@[A-Za-z0-9_]{3,}\b"),  # Исправлено, чтобы не ломать обычный текст
+    re.compile(r"\B@[A-Za-z0-9_]{3,}\b"),
     re.compile(r"подпишись\S*", re.IGNORECASE),
     re.compile(r"подписаться", re.IGNORECASE),
     re.compile(r"переходи\S*", re.IGNORECASE),
@@ -35,7 +35,6 @@ URL_PATTERNS = [
     re.compile(r"наш канал", re.IGNORECASE),
     re.compile(r"наш чат", re.IGNORECASE),
 ]
-
 
 def strip_links(text: str) -> str:
     if not text:
@@ -46,32 +45,16 @@ def strip_links(text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
+# --- ВЕБ-СЕРВЕР НА FLASK ДЛЯ RENDER ---
+app = Flask(__name__)
 
-# --- ВСПОМОГАТЕЛЬНЫЙ ВЕБ-СЕРВЕР ДЛЯ RENDER ---
-class SilentHandler(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass
+@app.route('/')
+def home():
+    return "OK", 200
 
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-    def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
-
-
-def start_http_server():
-    try:
-        httpd = http.server.HTTPServer(("0.0.0.0", PORT), SilentHandler)
-        print(f"[HTTP] Сервер на порту {PORT}", flush=True)
-        # Запуск в отдельном потоке, чтобы не блокировать infinity_polling
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    except Exception as e:
-        print(f"[HTTP] Ошибка: {e}", flush=True)
-
+def run_flask():
+    # Запускаем Flask на нужном порту
+    app.run(host="0.0.0.0", port=PORT)
 
 # --- КЛАВИАТУРЫ ---
 def get_main_menu():
@@ -83,7 +66,6 @@ def get_main_menu():
         types.KeyboardButton("🧹 Очистить диалог с ИИ"),
     )
     return markup
-
 
 def get_info_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -99,12 +81,10 @@ def get_info_menu():
     )
     return markup
 
-
 def get_back_menu():
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🔙 Вернуться в меню", callback_data="info_back_to_menu"))
     return markup
-
 
 # --- НЕЙРОСЕТЬ ---
 SYSTEM_PROMPT = (
@@ -122,7 +102,6 @@ SYSTEM_PROMPT = (
     "- добавлять рекламные приписки в конце ответа.\n"
     "Отвечай только текстом по существу вопроса."
 )
-
 
 def ask_ai(user_message: str, user_id: int) -> str:
     history = chat_history.setdefault(user_id, [])
@@ -157,14 +136,11 @@ def ask_ai(user_message: str, user_id: int) -> str:
         answer = answer[:4000] + "..."
     return answer
 
-
-# --- КОМАНДА СТАРТ ---
+# --- ОБРАБОТЧИКИ КОМАНД ---
 @bot.message_handler(commands=["start", "help"])
 def send_welcome(message):
     user_id = message.from_user.id
     user_data.pop(user_id, None)
-    print(f"[START] {user_id}", flush=True)
-
     welcome_text = (
         "👋 Здравствуйте! Данный бот создан для сбора и оперативного решения "
         "проблемных вопросов молодых специалистов Наровлянского района.\n\n"
@@ -175,8 +151,6 @@ def send_welcome(message):
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
-
-# --- ДОБАВЛЕНО: КНОПКА "⚠️ Сообщить о проблеме" ---
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def report_issue_init(message):
     user_id = message.from_user.id
@@ -189,13 +163,10 @@ def report_issue_init(message):
         parse_mode="Markdown"
     )
 
-
-# --- СПРАВОЧНИК ---
 @bot.message_handler(func=lambda message: message.text == "ℹ️ Справочная информация")
 def send_info_menu(message):
     user_id = message.from_user.id
-    user_data.pop(user_id, None)  # Сбрасываем режимы ИИ или обращения при переходе в меню
-    print(f"[INFO] {user_id}", flush=True)
+    user_data.pop(user_id, None)
     bot.send_message(
         message.chat.id,
         "📚 *Памятка молодого специалиста*\n\nВыберите интересующую вас тему:",
@@ -203,8 +174,6 @@ def send_info_menu(message):
         parse_mode="Markdown",
     )
 
-
-# --- ДОБАВЛЕНО: КНОПКА "🤖 Задать вопрос ИИ" ---
 @bot.message_handler(func=lambda message: message.text == "🤖 Задать вопрос ИИ")
 def ai_mode_init(message):
     user_id = message.from_user.id
@@ -212,19 +181,15 @@ def ai_mode_init(message):
     bot.send_message(
         message.chat.id,
         "🤖 **Режим ИИ активирован.**\n"
-        "Задайте любой интересующий вас вопрос по поводу трудовых прав, льгот, "
-        "распределения или условий работы в Республике Беларусь. Я постараюсь развернуто ответить.",
+        "Задайте любой интересующий вас вопрос по поводу трудовых правах в РБ.",
         parse_mode="Markdown"
     )
 
-
-# --- ДОБАВЛЕНО: КНОПКА "🧹 Очистить диалог с ИИ" ---
 @bot.message_handler(func=lambda message: message.text == "🧹 Очистить диалог с ИИ")
 def clear_ai_history(message):
     user_id = message.from_user.id
     chat_history.pop(user_id, None)
     bot.send_message(message.chat.id, "🧹 История вашего диалога с ИИ успешно очищена!")
-
 
 # --- БАЗА ДАННЫХ СТРАНИЦ СПРАВОЧНИКА ---
 INFO_PAGES = {
@@ -244,8 +209,7 @@ INFO_PAGES = {
         "▪️ Документы, не предусмотренные законодательством\n"
         "▪️ Характеристики с прежних мест работы\n"
         "▪️ Справки о жилищных условиях\n\n"
-        "*Важно:* приём оформляется приказом, трудовой договор — "
-        "в письменной форме (ст. 18 ТК)."
+        "*Важно:* приём оформляется приказом, трудовой договор — в письменной форме (ст. 18 ТК)."
     ),
     "boss": (
         "🤝 *Обязанности нанимателя при приёме*\n\n"
@@ -259,3 +223,6 @@ INFO_PAGES = {
         "✔️ Организовать стажировку молодого специалиста\n"
         "✔️ Вести трудовую книжку\n"
     ),
+    "pension": "🎓 *Распределение и пенсионный стаж*\n\nПериод обучения на дневной форме засчитывается в общий стаж, но не входит в страховой стаж для назначения пенсии, так как в этот период не уплачиваются взносы в ФСЗН. Однако период работы по распределению полностью формирует ваш полноценный пенсионный и страховой стаж.",
+    "test": "🚫 *Испытательный срок*\n\nСогласно ст. 28 Трудового кодекса РБ, предварительное испытание при приеме на работу **не устанавливается** для молодых специалистов, получивших профессионально-техническое, среднее специальное, высшее или научно-ориентированное образование и направленных на работу по распределению.",
+    "sick": "🤒 *Расчет больничного для новичков*\n\nДля молодых специалистов предусмотрены льготные условия. Пособие по временной нетрудоспособности с первого дня болезни исчисляется в размере **100 процентов** среднедневного заработка (в отличие от общего правила 80%), если право на больничный возникло в период отработки.",
