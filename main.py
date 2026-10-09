@@ -8,7 +8,7 @@ from telebot import types
 
 
 # --- НАСТРОЙКИ ---
-API_TOKEN = "8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E"
+API_TOKEN "8691191999:AAF7Cvci600khCulIk976e7-gzgG0oRMl4E"
 ADMIN_ID = 1099402750
 PORT = int(os.environ.get("PORT", "10000"))
 
