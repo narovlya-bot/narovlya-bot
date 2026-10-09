@@ -1,4 +1,5 @@
 import os
+import re
 import http.server
 import threading
 import requests
@@ -13,7 +14,7 @@ PORT = int(os.environ.get("PORT", "10000"))
 
 # --- НЕЙРОСЕТЬ (OpenRouter) ---
 OPENROUTER_API_KEY = "sk-or-v1-ВАШ_КЛЮЧ_СЮДА"
-AI_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+AI_MODEL = "google/gemini-2.0-flash-exp:free"
 AI_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -88,8 +89,24 @@ SYSTEM_PROMPT = (
     "Кодекс об образовании, Указ Президента № 1 от 05.01.2024 и другие нормативные акты РБ. "
     "Отвечай кратко, по делу, дружелюбно. Если вопрос юридический и сложный — советуй "
     "уточнить у нанимателя, в профсоюзе или в управлении по труду. "
-    "Не выдумывай суммы и нормы, если не уверен."
+    "Не выдумывай суммы и нормы, если не уверен.\n\n"
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО:\n"
+    "- добавлять ссылки на каналы, группы, сайты и сторонние ресурсы;\n"
+    "- предлагать подписаться, перейти куда-либо или обратиться в чат;\n"
+    "- вставлять @упоминания и любые URL;\n"
+    "- добавлять рекламные приписки в конце ответа.\n"
+    "Отвечай только текстом по существу вопроса."
 )
+
+
+def clean_ai_answer(text: str) -> str:
+    """Убирает из ответа ИИ любые ссылки и @упоминания."""
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"www\.\S+", "", text)
+    text = re.sub(r"@[A-Za-z0-9_]{3,}", "", text)
+    text = re.sub(r"t\.me/\S+", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def ask_ai(user_message: str, user_id: int) -> str:
@@ -118,7 +135,9 @@ def ask_ai(user_message: str, user_id: int) -> str:
         print(f"Ошибка AI: {e}")
         return "⚠️ Извините, не удалось получить ответ от нейросети. Попробуйте позже."
 
+    answer = clean_ai_answer(answer)
     history.append({"role": "assistant", "content": answer})
+
     if len(answer) > 4000:
         answer = answer[:4000] + "..."
     return answer
