@@ -11,31 +11,28 @@ ADMIN_ID = 1099402750
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 
-# Вспомогательный веб-сервер для Render (чтобы сервис не падал по таймауту)
-def run_web_server():
-    class SilentHandler(http.server.SimpleHTTPRequestHandler):
-        def log_message(self, format, *args):
-            pass  # Отключаем лишний спам запросов в логи Render
-            
-        def do_GET(self):
-            # КРИТИЧНО ДЛЯ RENDER: Отвечаем "ОК" на проверки пинга от хостинга
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(b"Бот работает стабильно!")
+# Вспомогательный веб-сервер для Render (занимает главный поток, как просит хостинг)
+class SilentHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass  # Отключаем спам логов запросов от Render
+        
+    def do_GET(self):
+        # Отвечаем Render статусом 200 OK, чтобы он не перезагружал контейнер
+        self.send_response(200)
+        self.send_header("Content-type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"Бот и веб-сервер работают в штатном режиме!")
 
-    # ИСПРАВЛЕНО: Явный хост 0.0.0.0 для прохождения внутренних проверок сети Render
+def start_http_server():
     server_address = ('0.0.0.0', 10000)
     try:
         httpd = http.server.HTTPServer(server_address, SilentHandler)
-        print("Вспомогательный веб-сервер Render запущен на порту 10000...")
-        
-        # Запускаем бесконечное прослушивание порта в изолированном фоновом потоке
-        server_thread = threading.Thread(target=httpd.serve_forever)
-        server_thread.daemon = True
-        server_thread.start()
+        print("Вспомогательный веб-сервер запущен на порту 10000...")
+        # Запускаем бесконечный цикл веб-сервера на основном потоке
+        httpd.serve_forever()
     except Exception as e:
-        print(f"Ошибка запуска веб-сервера: {e}")
+        print(f"Критическая ошибка веб-сервера: {e}")
+        sys.exit(1)
 
 # --- КОМАНДА СТАРТ ---
 @bot.message_handler(commands=['start', 'help'])
@@ -169,7 +166,7 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     user_id = message.from_user.id
-    user_data[user_id] = {} # Очищаем черновик для новой заявки
+    user_data[user_id] = {}
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -180,12 +177,10 @@ def choose_category(message):
     )
     bot.send_message(message.chat.id, "Выберите категорию вашей проблемы:", reply_markup=markup)
 
-# Обработка клика по кнопкам выбора категорий проблем
 @bot.callback_query_handler(func=lambda call: call.data.startswith('category_'))
 def handle_category_selection(call):
     user_id = call.from_user.id
     category_name = call.data.replace("category_", "")
-    
     user_data[user_id] = {'category': category_name}
     
     bot.answer_callback_query(call.id)
@@ -195,11 +190,16 @@ def handle_category_selection(call):
         f"✍️ Пожалуйста, отправьте текст вашего обращения. К тексту вы также можете прикрепить одно фото.",
         parse_mode="Markdown"
     )
-    # Переводим пользователя на шаг ожидания текста/картинки
     bot.register_next_step_handler(msg, process_user_report)
 
-# Прием обращения (обработка текста или фото) и отправка админу
 def process_user_report(message):
     user_id = message.from_user.id
     
     if user_id not in user_data or 'category' not in user_data[user_id]:
+        bot.send_message(message.chat.id, "⚠️ Сессия устарела. Нажмите заново на кнопку '⚠️ Сообщить о проблеме'.")
+        return
+
+    if message.content_type == 'photo':
+        user_data[user_id]['photo'] = message.photo[-1].file_id
+        user_data[user_id]['text'] = message.caption if message.caption else "Описание отсутствует."
+    elif message.content_type == 'text':
