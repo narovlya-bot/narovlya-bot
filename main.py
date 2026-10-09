@@ -18,9 +18,12 @@ def run_web_server():
             pass  # Отключаем лишний спам запросов в логи Render
 
     server_address = ('', 10000)
-    httpd = http.server.HTTPServer(server_address, SilentHandler)
-    print("Вспомогательный веб-сервер Render запущен на порту 10000...")
-    httpd.serve_forever()
+    try:
+        httpd = http.server.HTTPServer(server_address, SilentHandler)
+        print("Вспомогательный веб-сервер Render запущен на порту 10000...")
+        httpd.serve_forever()
+    except Exception as e:
+        print(f"Ошибка запуска веб-сервера: {e}")
 
 # --- КОМАНДА СТАРТ ---
 @bot.message_handler(commands=['start', 'help'])
@@ -129,7 +132,7 @@ def handle_info_pages(call):
             "✅ Минимальная база для расчета теперь привязана к минимальной заработной плате (МЗП) - сейчас это 726 руб.\n"
             "✅ Больничный за полный месяц болезни считается как 100% от МЗП.\n"
             "📈 Если ваш средний реальный заработок станет выше расчетной базы МЗП, больничный будет рассчитываться как 80% от вашего фактического заработка.\n"
-            "🏆 100% от реального заработка выплачивается при общем стаже работы от 10 лет и более."
+            "🏆 100% от реального заработка выплачивается при общего стажа работы от 10 лет и более."
         )
     elif page == "faq":
         text = (
@@ -153,6 +156,9 @@ def handle_info_pages(call):
 # --- БЛОК СБОРА ОБРАЩЕНИЙ ---
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
+    user_id = message.from_user.id
+    user_data[user_id] = {} # Сбрасываем старые черновики при новом обращении
+    
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье"),
@@ -162,46 +168,40 @@ def choose_category(message):
     )
     bot.send_message(message.chat.id, "Выберите категорию вашей проблемы:", reply_markup=markup)
 
+# Обработка выбора категории
 @bot.callback_query_handler(func=lambda call: call.data.startswith('category_'))
-def save_category(call):
+def handle_category_selection(call):
     user_id = call.from_user.id
-    category = call.data.replace("category_", "")
+    category_name = call.data.replace("category_", "")
     
-    user_data[user_id] = {'category': category}
-    try:
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-    except Exception:
-        pass
+    user_data[user_id] = {'category': category_name}
     
+    bot.answer_callback_query(call.id)
     msg = bot.send_message(
         call.message.chat.id, 
-        f"Вы выбрали категорию: *{category}*.\n\n"
-        "✍️ Пожалуйста, опишите вашу проблему как можно подробнее. "
-        "Вы также можете прикрепить ОДНО фото к вашему сообщению.",
+        f"Вы выбрали категорию: **{category_name}**.\n\n"
+        f"✍️ Пожалуйста, отправьте текст вашего обращения. К тексту вы также можете прикрепить одно фото.",
         parse_mode="Markdown"
     )
-    bot.register_next_step_handler(msg, process_problem_step)
+    # Ждем от пользователя текст или фото на следующем шаге
+    bot.register_next_step_handler(msg, process_user_report)
 
-def process_problem_step(message):
+# Получение и обработка самого обращения от пользователя
+def process_user_report(message):
     user_id = message.from_user.id
-    if user_id not in user_data:
-        bot.send_message(message.chat.id, "❌ Произошла ошибка. Пожалуйста, начните заново с команды /start")
+    
+    # Проверяем, заходил ли пользователь в меню категорий
+    if user_id not in user_data or 'category' not in user_data[user_id]:
+        bot.send_message(message.chat.id, "⚠️ Произошла ошибка. Начните сначала, нажав на кнопку '⚠️ Сообщить о проблеме'.")
         return
 
-    category = user_data[user_id]['category']
-    username = f"@{message.from_user.username}" if message.from_user.username else "Не указан"
-    full_name = f"{message.from_user.first_name or ''} {message.from_user.last_name or ''}".strip()
-
-    admin_text = (
-        f"🚨 **Новое обращение!**\n\n"
-        f"👤 **Отправитель:** {full_name} ({username})\n"
-        f"🆔 **ID пользователя:** `{user_id}`\n"
-        f"🗂 **Категория:** {category}\n\n"
-        f"📝 **Текст проблемы:**\n"
-    )
-
-    try:
-        if message.content_type == 'photo':
-            photo_id = message.photo[-1].file_id
-            caption = message.caption if message.caption else "Без текстового описания"
-            admin_text += caption
+    # Если пользователь отправил фото
+    if message.content_type == 'photo':
+        user_data[user_id]['photo'] = message.photo[-1].file_id
+        # Проверяем, есть ли описание у фото
+        if message.caption:
+            user_data[user_id]['text'] = message.caption
+        else:
+            user_data[user_id]['text'] = "Пользователь не оставил текстового описания, только фото."
+            
+    # Если пользователь отправил только текст
