@@ -10,6 +10,7 @@ ADMIN_ID = 1099402750
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 
+# Вспомогательный сервер для Render, чтобы сервис не падал по таймауту
 def run_web_server():
     server_address = ('', 10000)
     httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
@@ -20,7 +21,8 @@ def run_web_server():
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     user_id = message.from_user.id
-    user_data.clear()
+    if user_id in user_data:
+        del user_data[user_id]
     
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
     btn_report = types.KeyboardButton("⚠️ Сообщить о проблеме")
@@ -155,57 +157,48 @@ def save_category(call):
     category = call.data.replace("category_", "")
     
     user_data[user_id] = {'category': category}
-    bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.add(types.KeyboardButton("❌ Отмена"))
+    bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     
     msg = bot.send_message(
         call.message.chat.id, 
-        f"Вы выбрали категорию: **{category}**.\n\n"
-        "✍️ Пожалуйста, отправьте подробное описание вашей ситуации.\n"
-        "Вы можете прикрепить к сообщению **одно фото** или прислать просто текст проблемы.",
-        reply_markup=markup
+        f"Вы выбрали категорию: *{category}*.\n\n"
+        "✍️ Пожалуйста, опишите вашу проблему как можно подробнее. "
+        "Вы также можете прикрепить ОДНО фото к вашему сообщению.",
+        parse_mode="Markdown"
     )
-    bot.register_next_step_handler(msg, process_problem_data)
+    # Регистрируем следующий шаг: бот будет ждать текст или фото проблемы
+    bot.register_next_step_handler(msg, process_problem_step)
 
-def process_problem_data(message):
+def process_problem_step(message):
     user_id = message.from_user.id
-    
-    if message.text == "❌ Отмена":
-        send_welcome(message)
-        return
-
-    if user_id not in user_data or 'category' not in user_data[user_id]:
-        bot.send_message(message.chat.id, "Что-то пошло не так. Пожалуйста, введите /start заново.")
+    if user_id not in user_data:
+        bot.send_message(message.chat.id, "❌ Произошла ошибка. Пожалуйста, начните заново с команды /start")
         return
 
     category = user_data[user_id]['category']
-    username = f"@{message.from_user.username}" if message.from_user.username else "Скрыт"
-    first_name = message.from_user.first_name or "Не указано"
-    
-    problem_text = ""
-    photo_id = None
-    
+    username = f"@{message.from_user.username}" if message.from_user.username else "Не указан"
+    full_name = f"{message.from_user.first_name or ''} {message.from_user.last_name or ''}".strip()
+
+    admin_text = (
+        f"🚨 **Новое обращение!**\n\n"
+        f"👤 **Отправитель:** {full_name} ({username})\n"
+        f"🆔 **ID пользователя:** `{user_id}`\n"
+        f"🗂 **Категория:** {category}\n\n"
+        f"📝 **Текст проблемы:**\n"
+    )
+
+    # Если пользователь прислал фото с описанием
     if message.content_type == 'photo':
         photo_id = message.photo[-1].file_id
-        problem_text = message.caption if message.caption else "[Фото без текстового описания]"
-    elif message.content_type == 'text':
-        problem_text = message.text
-    else:
-        bot.send_message(message.chat.id, "Пожалуйста, отправьте текст или фотографию.")
-        return
-
-    admin_message = (
-        f"🚨 **Поступило новое обращение от молодого специалиста!**\n\n"
-        f"📂 **Категория:** {category}\n"
-        f"📝 **Суть проблемы:** {problem_text}\n\n"
-        f"👤 **Отправитель в Telegram:** {first_name} ({username})"
-    )
-    
-    try:
-        if photo_id:
-            bot.send_photo(ADMIN_ID, photo_id, caption=admin_message)
-        else:
-            bot.send_message(ADMIN_ID, admin_message)
+        caption = message.caption if message.caption else "Без текстового описания"
+        admin_text += caption
         
+        # Отправляем фото админу
+        bot.send_photo(ADMIN_ID, photo_id, caption=admin_text, parse_mode="Markdown")
+    
+    # Если пользователь прислал только текст
+    elif message.content_type == 'text':
+        admin_text += message.text
+        bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
+    
+    else:
