@@ -195,12 +195,14 @@ def process_user_report(message):
         bot.send_message(message.chat.id, "⚠️ Сессия устарела. Нажмите заново на кнопку '⚠️ Сообщить о проблеме'.")
         return
 
-    # Извлекаем тип сообщения и текст в один шаг для избежания путаницы в отступах
+    # ПОЛНОСТЬЮ ПЕРЕРАБОТАНО: Линейная структура без вложенных if-else условий
     photo_id = None
-    problem_text = ""
+    problem_text = "Описание отсутствует."
 
     if message.content_type == 'photo':
         photo_id = message.photo[-1].file_id
-        problem_text = message.caption if message.caption else "Описание отсутствует."
-    elif message.content_type == 'text':
-        if message.text in ["⚠️ Сообщить о проблеме", "ℹ️ Справочная информация"]:
+        if message.caption:
+            problem_text = message.caption
+            
+    if message.content_type == 'text':
+        if message.text == "⚠️ Сообщить о проблеме" or message.text == "ℹ️ Справочная информация":
