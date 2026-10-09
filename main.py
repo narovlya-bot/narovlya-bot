@@ -166,7 +166,6 @@ def save_category(call):
         "Вы также можете прикрепить ОДНО фото к вашему сообщению.",
         parse_mode="Markdown"
     )
-    # Регистрируем следующий шаг: бот будет ждать текст или фото проблемы
     bot.register_next_step_handler(msg, process_problem_step)
 
 def process_problem_step(message):
@@ -187,18 +186,20 @@ def process_problem_step(message):
         f"📝 **Текст проблемы:**\n"
     )
 
-    # Если пользователь прислал фото с описанием
     if message.content_type == 'photo':
         photo_id = message.photo[-1].file_id
         caption = message.caption if message.caption else "Без текстового описания"
         admin_text += caption
-        
-        # Отправляем фото админу
         bot.send_photo(ADMIN_ID, photo_id, caption=admin_text, parse_mode="Markdown")
     
-    # Если пользователь прислал только текст
     elif message.content_type == 'text':
         admin_text += message.text
         bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
     
     else:
+        bot.send_message(message.chat.id, "❌ Бот принимает только текст или фото. Попробуйте еще раз через меню.")
+        return
+
+    del user_data[user_id]
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
