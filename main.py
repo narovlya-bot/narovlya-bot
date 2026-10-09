@@ -168,7 +168,7 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     user_id = message.from_user.id
-    user_data[user_id] = {} # Инициализируем сессию для черновика
+    user_data[user_id] = {} # Инициализируем пустую сессию для черновика
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -205,3 +205,4 @@ def process_user_report(message):
         user_data[user_id]['photo'] = message.photo[-1].file_id
         if message.caption:
             user_data[user_id]['text'] = message.caption
+        else:
