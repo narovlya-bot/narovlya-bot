@@ -78,6 +78,8 @@ def send_info_menu(message):
 # --- ОБРАБОТЧИК КНОПОК СПРАВОЧНИКА ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('info_'))
 def handle_info_pages(call):
+    bot.answer_callback_query(call.id) # Снимает вечную загрузку с инлайн-кнопок
+    
     if call.data == "info_back_to_menu":
         try:
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
@@ -166,7 +168,7 @@ def handle_info_pages(call):
 @bot.message_handler(func=lambda message: message.text == "⚠️ Сообщить о проблеме")
 def choose_category(message):
     user_id = message.from_user.id
-    user_data[user_id] = {}
+    user_data[user_id] = {} # Инициализируем сессию для черновика
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -201,6 +203,5 @@ def process_user_report(message):
 
     if message.content_type == 'photo':
         user_data[user_id]['photo'] = message.photo[-1].file_id
-        user_data[user_id]['text'] = message.caption if message.caption else "Описание отсутствует."
-    elif message.content_type == 'text':
-        if message.text in ["⚠️ Сообщить о проблеме", "ℹ️ Справочная информация"]:
+        if message.caption:
+            user_data[user_id]['text'] = message.caption
