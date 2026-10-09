@@ -65,17 +65,14 @@ def handle_info_pages(call):
         send_info_menu(call.message)
         return
 
-    page_data = call.data.split('_')
-    if len(page_data) < 2:
-        return
-        
-    page = page_data[1] # Исправлено: строго извлекаем текстовый элемент из списка
+    # Заменяем сложный split на безопасный метод замены текста
+    page = call.data.replace("info_", "")
     text = ""
     
     if page == "docs":
         text = (
-            "📋 **Какие документы молодые специалисты должны предъявить нанимателю?**\n\n"
-            "Чтобы ничего не упустить, проверьте список:\n"
+            "📋 **Какие документы молодые специалисты должны предъявить нанимателю?**\n"
+            "Чтобы ничего не упустить, проверьте список:\n\n"
             "✔️ Документ, удостоверяющий личность\n"
             "✔️ Документы воинского учета (для военнообязанных и призывников)\n"
             "✔️ Документ об образовании или документ об обучении\n"
@@ -164,3 +161,4 @@ def handle_info_pages(call):
 def choose_category(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье"))
+    markup.add(types.InlineKeyboardButton("💼 Трудовые споры / Наставничество", callback_data="category_Работа"))
