@@ -21,7 +21,7 @@ def run_web_server():
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     user_id = message.from_user.id
-    user_data[user_id] = {} # Сброс состояния
+    user_data.clear() # Полная очистка состояний
     
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
     btn_report = types.KeyboardButton("⚠️ Сообщить о проблеме")
@@ -41,6 +41,7 @@ def send_welcome(message):
 def send_info_menu(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     
+    # Каждая кнопка добавляется отдельно для строгого соответствия правилам Telegram API
     markup.add(types.InlineKeyboardButton("📋 Документы при приеме на работу", callback_data="info_docs"))
     markup.add(types.InlineKeyboardButton("🤝 Обязанности нанимателя при приеме", callback_data="info_boss"))
     markup.add(types.InlineKeyboardButton("🎓 Распределение и пенсионный стаж", callback_data="info_pension"))
@@ -65,14 +66,14 @@ def handle_info_pages(call):
         send_info_menu(call.message)
         return
 
-    # Заменяем сложный split на безопасный метод замены текста
+    # Безопасное текстовое извлечение без использования квадратных скобок []
     page = call.data.replace("info_", "")
     text = ""
     
     if page == "docs":
         text = (
-            "📋 **Какие документы молодые специалисты должны предъявить нанимателю?**\n"
-            "Чтобы ничего не упустить, проверьте список:\n\n"
+            "📋 **Какие документы молодые специалисты должны предъявить нанимателю?**\n\n"
+            "Чтобы ничего не упустить, проверьте список:\n"
             "✔️ Документ, удостоверяющий личность\n"
             "✔️ Документы воинского учета (для военнообязанных и призывников)\n"
             "✔️ Документ об образовании или документ об обучении\n"
@@ -161,4 +162,3 @@ def handle_info_pages(call):
 def choose_category(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("🏠 Жилищно-бытовые условия / Общежитие", callback_data="category_Жилье"))
-    markup.add(types.InlineKeyboardButton("💼 Трудовые споры / Наставничество", callback_data="category_Работа"))
