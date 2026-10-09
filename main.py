@@ -1,4 +1,5 @@
 import os
+import time
 import http.server
 import threading
 import telebot
@@ -331,6 +332,7 @@ def handle_user_inputs(message):
 if __name__ == "__main__":
     threading.Thread(target=run_health_server, daemon=True).start()
 
+    # Первичная проверка токена
     try:
         me = bot.get_me()
         print(f"[INIT] Бот: @{me.username} (id={me.id})", flush=True)
@@ -353,5 +355,12 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[INIT] Ошибка меню команд: {e}", flush=True)
 
+    # --- УСТОЙЧИВЫЙ POLLING С АВТО-ПЕРЕЗАПУСКОМ ---
     print("[INIT] Запуск polling...", flush=True)
-    bot.infinity_polling()
+    while True:
+        try:
+            bot.infinity_polling(timeout=30, long_polling_timeout=20)
+            print("[POLL] polling завершился штатно — перезапускаю", flush=True)
+        except Exception as e:
+            print(f"[POLL] Обрыв: {e}. Перезапуск через 5 сек...", flush=True)
+        time.sleep(5)
