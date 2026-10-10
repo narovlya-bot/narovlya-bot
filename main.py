@@ -1,7 +1,6 @@
 import os
 import time
 import http.server
-import os
 import threading
 import telebot
 from telebot import types
@@ -13,6 +12,9 @@ ADMIN_ID = 1099402750
 PORT = int(os.environ.get("PORT", "10000"))
 
 print(f"[BOOT] Токен длина={len(API_TOKEN)}, начало={API_TOKEN[:10]}", flush=True)
+
+if not API_TOKEN:
+    raise RuntimeError("Не задана переменная окружения API_TOKEN")
 
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
@@ -333,21 +335,29 @@ def handle_user_inputs(message):
 if __name__ == "__main__":
     threading.Thread(target=run_health_server, daemon=True).start()
 
-    # Первичная проверка токена
+    # 1. Проверяем токен
     try:
         me = bot.get_me()
         print(f"[INIT] Бот: @{me.username} (id={me.id})", flush=True)
-
-        wh = bot.get_webhook_info()
-        if wh.url:
-            print(f"[INIT] Вебхук: {wh.url} — удаляю", flush=True)
-            bot.remove_webhook()
-        else:
-            print("[INIT] Вебхук не установлен — ок", flush=True)
     except Exception as e:
         print(f"[INIT] Ошибка проверки токена: {e}", flush=True)
         raise
 
+    # 2. СБРОС: удаляем вебхук и старые апдейты
+    #    (Способ 2 — устраняет конфликты при старте)
+    try:
+        bot.remove_webhook()
+        print("[INIT] Вебхук удалён", flush=True)
+    except Exception as e:
+        print(f"[INIT] remove_webhook: {e}", flush=True)
+
+    try:
+        bot.get_updates(offset=-1, timeout=1)
+        print("[INIT] Старые апдейты сброшены", flush=True)
+    except Exception as e:
+        print(f"[INIT] get_updates: {e}", flush=True)
+
+    # 3. Меню команд
     try:
         bot.set_my_commands([
             types.BotCommand("/start", "Запустить бота"),
@@ -356,12 +366,24 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[INIT] Ошибка меню команд: {e}", flush=True)
 
-    # --- УСТОЙЧИВЫЙ POLLING С АВТО-ПЕРЕЗАПУСКОМ ---
+    # 4. УСТОЙЧИВЫЙ POLLING С ОБРАБОТКОЙ 409
+    #    (Способ 1 — если старый контейнер ещё жив, не падаем, ждём)
     print("[INIT] Запуск polling...", flush=True)
     while True:
         try:
             bot.infinity_polling(timeout=30, long_polling_timeout=20)
             print("[POLL] polling завершился штатно — перезапускаю", flush=True)
+            time.sleep(2)
+        except telebot.apihelper.ApiTelegramException as e:
+            if e.error_code == 409:
+                print("[POLL] 409 Conflict — ждём 15 сек и пробуем снова", flush=True)
+                time.sleep(15)
+            elif e.error_code == 401:
+                print("[POLL] 401 Unauthorized — токен недействителен!", flush=True)
+                time.sleep(30)
+            else:
+                print(f"[POLL] ApiTelegramException {e.error_code}: {e}. Ждём 5 сек", flush=True)
+                time.sleep(5)
         except Exception as e:
-            print(f"[POLL] Обрыв: {e}. Перезапуск через 5 сек...", flush=True)
-        time.sleep(5)
+            print(f"[POLL] Обрыв: {e}. Ждём 5 сек", flush=True)
+            time.sleep(5)
