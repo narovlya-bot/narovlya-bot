@@ -1,13 +1,14 @@
 import os
 import time
 import http.server
+import os
 import threading
 import telebot
 from telebot import types
 
 
 # --- НАСТРОЙКИ ---
-API_TOKEN = "8691191999:AAFAtz2tltAY3GQosohgwpm4zUsWWx17puk"
+API_TOKEN = os.environ.get("API_TOKEN", "")
 ADMIN_ID = 1099402750
 PORT = int(os.environ.get("PORT", "10000"))
 
